@@ -203,7 +203,7 @@ async fn main() {
                             let newy = (y as isize + new_dir.0) as usize;
                             let newx = (x as isize + new_dir.1) as usize;
                             // Create another prey boid if ther are 2, and safe directions are greater than 2
-                            if prey_count > 2 && prey_count < 6 {
+                            if prey_count == 2 {
                                 // Flip a coin breed or move
                                 let procreate_p = rand::rand() % 2;
                                 if procreate_p == 1 {
