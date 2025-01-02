@@ -16,10 +16,9 @@ struct Boid {
 }
 
 const PREY_HEALTH: u16 = 1;
-//const PREY_SPLIT: u16 = 5;
-const PREY_SPLIT: u16 = 3;
-//const PREDATOR_HEALTH: u16 = 10;
-const PREDATOR_HEALTH: u16 = 5;
+const PREY_SPLIT: u16 = 5;
+//const PREY_SPLIT: u16 = 3;
+const PREDATOR_HEALTH: u16 = 10;
 const ENVIRONMENT_HEALTH: u16 = 0;
 
 impl Boid {
