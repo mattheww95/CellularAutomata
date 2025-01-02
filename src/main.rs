@@ -1,5 +1,4 @@
 use macroquad::prelude::*;
-use macroquad::rand;
 use macroquad::rand::RandomRange;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -16,8 +15,9 @@ struct Boid {
     colour: Color,
 }
 
-const PREY_HEALTH: u8 = 3;
-const PREDATOR_HEALTH: u8 = 10;
+const PREY_HEALTH: u8 = 1;
+const PREY_SPLIT: u8 = 5;
+const PREDATOR_HEALTH: u8 = 20;
 const ENVIRONMENT_HEALTH: u8 = 0;
 
 impl Boid {
@@ -36,7 +36,7 @@ impl Boid {
             BoidType::Environment => {
                 self.boid_type = bt;
                 self.health = ENVIRONMENT_HEALTH;
-                self.colour = BLACK
+                self.colour = BLACK;
             }
         };
     }
@@ -62,6 +62,17 @@ impl Boid {
     }
 }
 
+static mut SEED: usize = 42;
+
+unsafe fn custom_rand() -> usize {
+    SEED = SEED * 1103515245 + 12345;
+    return (SEED / 65536) % 32768;
+}
+
+fn rand() -> usize {
+    unsafe { custom_rand() }
+}
+
 #[macroquad::main("PredatorVsPrey")]
 async fn main() {
     // N NE E SE S SW W NW
@@ -83,7 +94,7 @@ async fn main() {
 
     // Set set the number of values to add
     let prey_percent = 0.10;
-    let predator_percent = 0.02;
+    let predator_percent = 0.50;
 
     // Populate map
     let mut map: Vec<Vec<Boid>> = Vec::with_capacity(h);
@@ -139,8 +150,8 @@ async fn main() {
                                 let mut update_val = map[new_y as usize][new_x as usize];
                                 match update_val.boid_type {
                                     BoidType::Prey => {
+                                        map[y][x].health += update_val.health;
                                         update_val.change(BoidType::Predator);
-                                        map[y][x].health = PREDATOR_HEALTH;
                                     }
                                     BoidType::Environment => {
                                         safe_directions.push((dir.0, dir.1));
@@ -151,27 +162,31 @@ async fn main() {
                                 }
                             }
                         }
-                        if map[y][x].health == 1 {
-                            map[y][x].change(BoidType::Environment);
-                        }
-                        if safe_directions.len() == 0 {
-                            map[y][x].health -= 1;
-                        } else {
-                            let new_dir = safe_directions
-                                [(rand::rand() % safe_directions.len() as u32) as usize];
-                            let newy = (y as isize + new_dir.0) as usize;
-                            let newx = (x as isize + new_dir.1) as usize;
-                            map[newy][newx].change(BoidType::Predator);
-                            map[newy][newx].health -= 1;
-                            map[y][x].change(BoidType::Environment);
-                        }
-                    }
-                    BoidType::Prey => {
+
                         if map[y][x].health == 1 {
                             map[y][x].change(BoidType::Environment);
                             continue;
                         }
-                        let mut prey_count = 0;
+
+                        if safe_directions.len() == 0 {
+                            map[y][x].health -= 1;
+                        } else {
+                            let rand_idx = rand() as usize % directions.len();
+                            let new_dir = directions[rand_idx];
+                            if safe_directions.contains(&new_dir) {
+                                let newy = (y as isize + new_dir.0) as usize;
+                                let newx = (x as isize + new_dir.1) as usize;
+                                map[newy][newx].boid_type = BoidType::Predator;
+                                map[newy][newx].health = map[y][x].health - 1;
+                                map[newy][newx].colour = RED;
+                                map[y][x].change(BoidType::Environment);
+                            } else {
+                                map[y][x].health -= 1;
+                            }
+                        }
+                    }
+                    BoidType::Prey => {
+                        map[y][x].health += 1;
                         let mut safe_directions: Vec<(isize, isize)> =
                             Vec::with_capacity(directions.len());
                         // Check if any prey are nearby
@@ -183,8 +198,7 @@ async fn main() {
                                 let update_val = map[new_y as usize][new_x as usize];
                                 match update_val.boid_type {
                                     BoidType::Prey => {
-                                        safe_directions.push((dir.0, dir.1));
-                                        prey_count += 1;
+                                        continue;
                                     }
                                     BoidType::Environment => {
                                         safe_directions.push((dir.0, dir.1));
@@ -194,45 +208,57 @@ async fn main() {
                                     }
                                 }
                             }
-                            if safe_directions.len() == 0 {
-                                map[y][x].health -= 1;
-                                continue;
-                            }
-                            let new_dir = safe_directions
-                                [(rand::rand() % safe_directions.len() as u32) as usize];
-                            let newy = (y as isize + new_dir.0) as usize;
-                            let newx = (x as isize + new_dir.1) as usize;
-                            // Create another prey boid if ther are 2, and safe directions are greater than 2
-                            if prey_count == 2 {
-                                // Flip a coin breed or move
-                                let procreate_p = rand::rand() % 2;
-                                if procreate_p == 1 {
-                                    map[newy][newx].change(BoidType::Prey);
-                                    map[y][x].health -= 1;
-                                } else {
-                                    map[newy][newx].change(BoidType::Prey);
-                                    map[newy][newx].health -= 1;
-                                    map[y][x].change(BoidType::Environment);
-                                }
-                            } else {
-                                map[newy][newx].change(BoidType::Prey);
-                                map[newy][newx].health -= 1;
-                                map[y][x].change(BoidType::Environment);
-                            }
+                        }
+                        if safe_directions.len() == 0 {
+                            continue;
+                        }
+                        //let rand_idx = RandomRange::gen_range(0, safe_directions.len());
+                        let rand_idx = rand() % directions.len();
+                        let new_dir = directions[rand_idx];
+                        if !safe_directions.contains(&new_dir) {
+                            continue;
+                        }
+                        let newy = (y as isize + new_dir.0) as usize;
+                        let newx = (x as isize + new_dir.1) as usize;
+                        // Create another prey boid if ther are 2, and safe directions are greater than 2
+                        if map[y][x].health >= PREY_SPLIT {
+                            // Flip a coin breed or move
+                            map[newy][newx].change(BoidType::Prey);
+                            map[y][x].health = PREY_HEALTH;
+                        } else {
+                            map[newy][newx].boid_type = BoidType::Prey;
+                            map[newy][newx].health = map[y][x].health;
+                            map[newy][newx].colour = GREEN;
+                            map[y][x].change(BoidType::Environment);
                         }
                     }
                     BoidType::Environment => continue,
                 }
             }
         }
-
+        let mut predators = 0;
+        let mut prey = 0;
         for y in 0..map.len() {
             for x in 0..map[y].len() {
                 image.set_pixel(x as u32, y as u32, map[y][x].colour);
+                match map[y][x].boid_type {
+                    BoidType::Prey => prey += 1,
+                    BoidType::Predator => predators += 1,
+                    _ => continue,
+                }
             }
         }
         texture.update(&image);
         draw_texture(&texture, 0., 0., WHITE);
+        draw_text_ex(
+            &format!("Predators: {} Prey: {}", predators, prey),
+            30.0,
+            30.0,
+            TextParams {
+                color: WHITE,
+                ..TextParams::default()
+            },
+        );
         next_frame().await;
     }
 }
