@@ -11,14 +11,16 @@ enum BoidType {
 #[derive(Copy, Clone, Debug, PartialEq)]
 struct Boid {
     boid_type: BoidType,
-    health: u8,
+    health: u16,
     colour: Color,
 }
 
-const PREY_HEALTH: u8 = 1;
-const PREY_SPLIT: u8 = 5;
-const PREDATOR_HEALTH: u8 = 20;
-const ENVIRONMENT_HEALTH: u8 = 0;
+const PREY_HEALTH: u16 = 1;
+//const PREY_SPLIT: u16 = 5;
+const PREY_SPLIT: u16 = 15;
+//const PREDATOR_HEALTH: u16 = 10;
+const PREDATOR_HEALTH: u16 = 5;
+const ENVIRONMENT_HEALTH: u16 = 0;
 
 impl Boid {
     fn change(&mut self, bt: BoidType) {
@@ -65,7 +67,7 @@ impl Boid {
 static mut SEED: usize = 42;
 
 unsafe fn custom_rand() -> usize {
-    SEED = SEED * 1103515245 + 12345;
+    SEED = SEED.wrapping_mul(1103515245) + 12345;
     return (SEED / 65536) % 32768;
 }
 
@@ -93,8 +95,8 @@ async fn main() {
     let map_size = w * h;
 
     // Set set the number of values to add
-    let prey_percent = 0.01;
-    let predator_percent = 0.10;
+    let prey_percent = 0.10;
+    let predator_percent = 0.01;
 
     // Populate map
     let mut map: Vec<Vec<Boid>> = Vec::with_capacity(h);
@@ -141,17 +143,23 @@ async fn main() {
                     BoidType::Predator => {
                         let mut safe_directions: Vec<(isize, isize)> =
                             Vec::with_capacity(directions.len());
+                        if map[y][x].health == 1 {
+                            map[y][x].change(BoidType::Environment);
+                            continue;
+                        }
+                        map[y][x].health -= 1;
                         // Check if any prey are nearby
                         for dir in directions.iter() {
                             let new_y = dir.0 + y as isize;
                             let new_x = dir.1 + x as isize;
                             if 0 <= new_y && new_y < h as isize && 0 <= new_x && new_x < w as isize
                             {
-                                let mut update_val = map[new_y as usize][new_x as usize];
-                                match update_val.boid_type {
+                                match map[new_y as usize][new_x as usize].boid_type {
                                     BoidType::Prey => {
-                                        map[y][x].health += update_val.health;
-                                        update_val.change(BoidType::Predator);
+                                        map[y][x].health +=
+                                            map[new_y as usize][new_x as usize].health;
+                                        map[new_y as usize][new_x as usize]
+                                            .change(BoidType::Predator);
                                     }
                                     BoidType::Environment => {
                                         safe_directions.push((dir.0, dir.1));
@@ -163,26 +171,16 @@ async fn main() {
                             }
                         }
 
-                        if map[y][x].health == 1 {
+                        let rand_idx = rand() as usize % directions.len();
+                        let new_dir = directions[rand_idx];
+                        if safe_directions.contains(&new_dir) {
+                            let newy = (y as isize + new_dir.0) as usize;
+                            let newx = (x as isize + new_dir.1) as usize;
+                            map[newy][newx].boid_type = BoidType::Predator;
+                            map[newy][newx].health = map[y][x].health;
+                            map[newy][newx].colour = RED;
+                            map[newy][newx] = Boid { ..map[y][x] };
                             map[y][x].change(BoidType::Environment);
-                            continue;
-                        }
-
-                        if safe_directions.len() == 0 {
-                            map[y][x].health -= 1;
-                        } else {
-                            let rand_idx = rand() as usize % directions.len();
-                            let new_dir = directions[rand_idx];
-                            if safe_directions.contains(&new_dir) {
-                                let newy = (y as isize + new_dir.0) as usize;
-                                let newx = (x as isize + new_dir.1) as usize;
-                                map[newy][newx].boid_type = BoidType::Predator;
-                                map[newy][newx].health = map[y][x].health - 1;
-                                map[newy][newx].colour = RED;
-                                map[y][x].change(BoidType::Environment);
-                            } else {
-                                map[y][x].health -= 1;
-                            }
                         }
                     }
                     BoidType::Prey => {
@@ -215,7 +213,6 @@ async fn main() {
                         //let rand_idx = RandomRange::gen_range(0, safe_directions.len());
                         let rand_idx = rand() % directions.len();
                         let new_dir = directions[rand_idx];
-                        dbg!(safe_directions.contains(&new_dir));
                         if !safe_directions.contains(&new_dir) {
                             continue;
                         }
