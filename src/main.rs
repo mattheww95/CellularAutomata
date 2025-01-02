@@ -124,15 +124,20 @@ async fn main() {
 
     loop {
         // Add game logic here
-        // Predator and prey lose a life every move, and the move a random direction
-        // each time
+        //-For prey:
+        //    -Tries to move in a random direction.
+        //    -Health increases.
+        //    -When health reaches a threshold:
+        //        -They will reproduce, creating a new "Prey"
+        //        -Their health resets to 1
         //
-        // Update Predators first, if predators have a prey right next to them
-        // eat the prey, and that prey becomes a predator, otherwise move in a
-        // random direction.
-        //
-        // Prey moves in a random directin each turn if there is not path blocked. If there
-        // are 3 empty spaces around them, then they spawn a new prey and move.
+        //-For predator:
+        //    -Tries to move in a random direction.
+        //    -Health decreases.
+        //    -When health reaches 0, they die and turn into "Nothing".
+        //    -If the adjacent square is a prey:
+        //        -They will eat it, turning it into a "predator" (reproducing)
+        //        -Their health will increase by the amount of health the eaten prey had
         //
 
         // Predators first
