@@ -93,8 +93,8 @@ async fn main() {
     let map_size = w * h;
 
     // Set set the number of values to add
-    let prey_percent = 0.10;
-    let predator_percent = 0.50;
+    let prey_percent = 0.01;
+    let predator_percent = 0.10;
 
     // Populate map
     let mut map: Vec<Vec<Boid>> = Vec::with_capacity(h);
@@ -215,6 +215,7 @@ async fn main() {
                         //let rand_idx = RandomRange::gen_range(0, safe_directions.len());
                         let rand_idx = rand() % directions.len();
                         let new_dir = directions[rand_idx];
+                        dbg!(safe_directions.contains(&new_dir));
                         if !safe_directions.contains(&new_dir) {
                             continue;
                         }
