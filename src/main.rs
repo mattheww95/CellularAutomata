@@ -101,8 +101,8 @@ async fn main() {
     let map_size = w * h;
 
     // Set set the number of values to add
-    let prey_percent = 0.01;
-    let predator_percent = 0.001;
+    let prey_percent = 0.10;
+    let predator_percent = 0.01;
 
     // Populate map
     let mut map1: Vec<Vec<Boid>> = Vec::with_capacity(h);
@@ -232,16 +232,24 @@ async fn main() {
                                     }
                                 }
                             }
-                        }
+                        } 
+
                         if safe_directions.len() == 0 {
+                            map_u[y][x].boid_type = BoidType::Prey;
+                            map_u[y][x].health = map[y][x].health;
+                            map_u[y][x].colour = GREEN;
                             continue;
                         }
 
                         let rand_idx = rand() % directions.len();
                         let new_dir = directions[rand_idx];
                         if !safe_directions.contains(&new_dir) {
+                            map_u[y][x].boid_type = BoidType::Prey;
+                            map_u[y][x].health = map[y][x].health;
+                            map_u[y][x].colour = GREEN;
                             continue;
                         }
+
                         let newy = (y as isize + new_dir.0) as usize;
                         let newx = (x as isize + new_dir.1) as usize;
                         // Create another prey boid if ther are 2, and safe directions are greater than 2
