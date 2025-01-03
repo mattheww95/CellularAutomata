@@ -101,8 +101,8 @@ async fn main() {
     let map_size = w * h;
 
     // Set set the number of values to add
-    let prey_percent = 0.10;
-    let predator_percent = 0.01;
+    let prey_percent = 0.01;
+    let predator_percent = 0.001;
 
     // Populate map
     let mut map1: Vec<Vec<Boid>> = Vec::with_capacity(h);
@@ -292,7 +292,7 @@ async fn main() {
             },
         );
         draw_text_ex(
-            &format!("Predators: {}", prey), 30.0, 50.0,
+            &format!("Prey: {}", prey), 30.0, 50.0,
             TextParams {
                 color: WHITE,
                 ..TextParams::default()
