@@ -126,6 +126,7 @@ async fn main() {
 
     let mut map = &mut map1;
     let mut map_u = &mut map2;
+    let mut iterations: u64 = 0;
     loop {
         // Add game logic here
         //-For prey:
@@ -284,15 +285,28 @@ async fn main() {
         texture.update(&image);
         draw_texture(&texture, 0., 0., WHITE);
         draw_text_ex(
-            &format!("Predators: {} Prey: {}", predators, prey),
-            30.0,
-            30.0,
+            &format!("Predators: {}", predators), 30.0, 30.0,
+            TextParams {
+                color: WHITE,
+                ..TextParams::default()
+            },
+        );
+        draw_text_ex(
+            &format!("Predators: {}", prey), 30.0, 50.0,
+            TextParams {
+                color: WHITE,
+                ..TextParams::default()
+            },
+        );
+        draw_text_ex(
+            &format!("Iterations: {}", iterations), 30.0, 70.0,
             TextParams {
                 color: WHITE,
                 ..TextParams::default()
             },
         );
         map_use = !map_use;
+        iterations += 1;
         next_frame().await;
         
     }
