@@ -1,3 +1,4 @@
+use clap::Parser;
 use macroquad::prelude::*;
 use macroquad::rand::RandomRange;
 
@@ -15,47 +16,48 @@ struct Boid {
     colour: Color,
 }
 
-const PREY_HEALTH: u16 = 1;
-const PREY_SPLIT: u16 = 3;
-const PREDATOR_HEALTH: u16 = 5;
-const ENVIRONMENT_HEALTH: u16 = 0;
+struct ArgsDefaults {
+    prey_health: u16,
+    predator_health: u16,
+    environment_health: u16,
+}
 
 impl Boid {
-    fn change(&mut self, bt: BoidType) {
+    fn change(&mut self, bt: BoidType, defaults: &ArgsDefaults) {
         match bt {
             BoidType::Prey => {
                 self.boid_type = bt;
-                self.health = PREY_HEALTH;
+                self.health = defaults.prey_health;
                 self.colour = GREEN
             }
             BoidType::Predator => {
                 self.boid_type = bt;
-                self.health = PREDATOR_HEALTH;
+                self.health = defaults.predator_health;
                 self.colour = RED
             }
             BoidType::Environment => {
                 self.boid_type = bt;
-                self.health = ENVIRONMENT_HEALTH;
+                self.health = defaults.environment_health;
                 self.colour = BLACK;
             }
         };
     }
 
-    fn new_boid(bt: BoidType) -> Boid {
+    fn new_boid(bt: BoidType, defaults: &ArgsDefaults) -> Boid {
         match bt {
             BoidType::Prey => Boid {
                 boid_type: bt,
-                health: PREY_HEALTH,
+                health: defaults.prey_health,
                 colour: GREEN,
             },
             BoidType::Predator => Boid {
                 boid_type: bt,
-                health: PREDATOR_HEALTH,
+                health: defaults.predator_health,
                 colour: RED,
             },
             BoidType::Environment => Boid {
                 boid_type: bt,
-                health: ENVIRONMENT_HEALTH,
+                health: defaults.environment_health,
                 colour: BLACK,
             },
         }
@@ -73,16 +75,55 @@ fn rand() -> usize {
     unsafe { custom_rand() }
 }
 
-fn populate_map(num: u64, map: &mut Vec<Vec<Boid>>, bt: BoidType, width: usize, height: usize) -> (){
-    for _ in 0..num{
+fn populate_map(
+    num: u64,
+    map: &mut Vec<Vec<Boid>>,
+    bt: BoidType,
+    width: usize,
+    height: usize,
+    defs: &ArgsDefaults,
+) -> () {
+    for _ in 0..num {
         let cx = RandomRange::gen_range(0, width - 1);
         let cy = RandomRange::gen_range(0, height - 1);
-        map[cy][cx].change(bt);
+        map[cy][cx].change(bt, defs);
     }
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about=None)]
+struct Cli {
+    #[clap(long, short = 'p', default_value_t = 1)]
+    prey_health: u16,
+
+    #[clap(long, short = 's', default_value_t = 3)]
+    prey_split: u16,
+
+    #[clap(long, short = 'h', default_value_t = 5)]
+    predator_health: u16,
+
+    #[clap(long, short = 'r', default_value_t = 0.001)]
+    predators: f64,
+
+    #[clap(long, short = 'y', default_value_t = 0.01)]
+    prey: f64,
 }
 
 #[macroquad::main("PredatorVsPrey")]
 async fn main() {
+    let args = Cli::parse();
+
+    let prey_health: u16 = args.prey_health;
+    let prey_split: u16 = args.prey_split;
+    let predator_health: u16 = args.predator_health;
+    let environment_health: u16 = 0;
+
+    let defaults = ArgsDefaults {
+        prey_health,
+        predator_health,
+        environment_health,
+    };
+
     // N NE E SE S SW W NW
     // N 1, 0
     // NE 1, 1
@@ -101,13 +142,13 @@ async fn main() {
     let map_size = w * h;
 
     // Set set the number of values to add
-    let prey_percent = 0.01;
-    let predator_percent = 0.001;
+    let prey_percent = args.prey;
+    let predator_percent = args.predators;
 
     // Populate map
     let mut map1: Vec<Vec<Boid>> = Vec::with_capacity(h);
     for _ in 0..h {
-        map1.push(vec![Boid::new_boid(BoidType::Environment); w]);
+        map1.push(vec![Boid::new_boid(BoidType::Environment, &defaults); w]);
     }
     let mut map2 = map1.clone(); // Copy the map for updating alternate
 
@@ -117,9 +158,15 @@ async fn main() {
 
     let mut image = Image::gen_image_color(w as u16, h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
-
-    populate_map(number_of_prey, &mut map1, BoidType::Prey, w, h);
-    populate_map(number_of_predator, &mut map1, BoidType::Predator, w, h);
+    populate_map(number_of_prey, &mut map1, BoidType::Prey, w, h, &defaults);
+    populate_map(
+        number_of_predator,
+        &mut map1,
+        BoidType::Predator,
+        w,
+        h,
+        &defaults,
+    );
 
     let mut map_use: bool = false;
     let mut safe_directions: Vec<(isize, isize)> = Vec::with_capacity(directions.len());
@@ -148,7 +195,7 @@ async fn main() {
         if map_use {
             map = &mut map2;
             map_u = &mut map1;
-        }else{
+        } else {
             map = &mut map1;
             map_u = &mut map2;
         }
@@ -157,10 +204,9 @@ async fn main() {
             for x in 0..map[y].len() {
                 match map[y][x].boid_type {
                     BoidType::Predator => {
-
                         if map[y][x].health == 1 {
-                            map_u[y][x].change(BoidType::Environment);
-                            map[y][x].change(BoidType::Environment);
+                            map_u[y][x].change(BoidType::Environment, &defaults);
+                            map[y][x].change(BoidType::Environment, &defaults);
                             continue;
                         }
                         map[y][x].health -= 1;
@@ -181,8 +227,9 @@ async fn main() {
                                         map[y][x].health +=
                                             map[new_y as usize][new_x as usize].health;
                                         map_u[new_y as usize][new_x as usize]
-                                            .change(BoidType::Predator);
-                                        map[new_y as usize][new_x as usize].change(BoidType::Environment);
+                                            .change(BoidType::Predator, &defaults);
+                                        map[new_y as usize][new_x as usize]
+                                            .change(BoidType::Environment, &defaults);
                                     }
                                     BoidType::Environment => {
                                         safe_directions.push((dir.0, dir.1));
@@ -202,13 +249,12 @@ async fn main() {
                             map_u[newy][newx].boid_type = BoidType::Predator;
                             map_u[newy][newx].health = map[y][x].health;
                             map_u[newy][newx].colour = RED;
-                        }else{
+                        } else {
                             map_u[y][x].boid_type = BoidType::Predator;
                             map_u[y][x].health = map[y][x].health;
                             map_u[y][x].colour = RED;
-                            
                         }
-                        map[y][x].change(BoidType::Environment);
+                        map[y][x].change(BoidType::Environment, &defaults);
                     }
                     BoidType::Prey => {
                         map[y][x].health += 1;
@@ -233,7 +279,7 @@ async fn main() {
                                     }
                                 }
                             }
-                        } 
+                        }
 
                         if safe_directions.len() == 0 {
                             map_u[y][x].boid_type = BoidType::Prey;
@@ -254,15 +300,15 @@ async fn main() {
                         let newy = (y as isize + new_dir.0) as usize;
                         let newx = (x as isize + new_dir.1) as usize;
                         // Create another prey boid if ther are 2, and safe directions are greater than 2
-                        if map[y][x].health >= PREY_SPLIT {
-                            map_u[newy][newx].change(BoidType::Prey);
-                            map_u[y][x].change(BoidType::Prey);
-                            map[y][x].change(BoidType::Environment);
+                        if map[y][x].health >= prey_split {
+                            map_u[newy][newx].change(BoidType::Prey, &defaults);
+                            map_u[y][x].change(BoidType::Prey, &defaults);
+                            map[y][x].change(BoidType::Environment, &defaults);
                         } else {
                             map_u[newy][newx].boid_type = BoidType::Prey;
                             map_u[newy][newx].health = map[y][x].health;
                             map_u[newy][newx].colour = GREEN;
-                            map[y][x].change(BoidType::Environment);
+                            map[y][x].change(BoidType::Environment, &defaults);
                         }
                     }
                     BoidType::Environment => continue,
@@ -282,32 +328,42 @@ async fn main() {
                 }
             }
         }
+        if predators == 0 || prey == 0 {
+            println!("Species went extinct after {} iterations.", iterations);
+            break;
+        }
         texture.update(&image);
         draw_texture(&texture, 0., 0., WHITE);
         draw_text_ex(
-            &format!("Predators: {}", predators), 30.0, 30.0,
+            &format!("Predators: {}", predators),
+            30.0,
+            30.0,
             TextParams {
                 color: WHITE,
                 ..TextParams::default()
             },
         );
         draw_text_ex(
-            &format!("Prey: {}", prey), 30.0, 50.0,
+            &format!("Prey: {}", prey),
+            30.0,
+            50.0,
             TextParams {
                 color: WHITE,
                 ..TextParams::default()
             },
         );
         draw_text_ex(
-            &format!("Iterations: {}", iterations), 30.0, 70.0,
+            &format!("Iterations: {}", iterations),
+            30.0,
+            70.0,
             TextParams {
                 color: WHITE,
                 ..TextParams::default()
             },
         );
+
         map_use = !map_use;
         iterations += 1;
         next_frame().await;
-        
     }
 }
